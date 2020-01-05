@@ -1,18 +1,14 @@
 import operator
 from datetime import datetime
-from enum import Enum
+
 from fundamental_data import FundamentalData
 from technical_data import TechnicalData
+from algo_type import MLAlgoType
+from run_config import RunConfig
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 
-class MLAlgoType(Enum):
-    '''
-    Enum to define ML algorithms which are supported by strategy
-    '''
-    ADABOOST = 1
-    RANDOMFOREST = 2
 
 class SmartBetaStrategies(QCAlgorithm):
     '''
@@ -35,17 +31,18 @@ class SmartBetaStrategies(QCAlgorithm):
         This method is responsible to setup the environment and different parameter for algo strategy.
         '''
         # Set Start date for backtesting
-        self.SetStartDate(2017, 11, 1)  # Note: initial model will be trained with 1 year data
+        self.SetStartDate(RunConfig.StartDate)
         
         # Set EndDate for backtesting
-        self.SetEndDate(2019,11,1)
-        self.SetCash(200000)  # Set Strategy Cash
+        self.SetEndDate(RunConfig.EndDate)
+        
+        self.SetCash(RunConfig.StrategyCash)  # Set Strategy Cash
         
         # Set trade data frequency
-        self.UniverseSettings.Resolution = Resolution.Daily
+        self.UniverseSettings.Resolution = RunConfig.Resolution
         
         # Define benchmark for strategy
-        self.bench_index = self.AddEquity("SPY", Resolution.Daily).Symbol
+        self.bench_index = self.AddEquity(RunConfig.BenchmarkIndex, RunConfig.Resolution).Symbol
         self.SetBenchmark(self.bench_index)
         
         # Initialize the custom collection for strategy
@@ -70,8 +67,11 @@ class SmartBetaStrategies(QCAlgorithm):
        
         # Note: self.RebalanceOnML If running ML based strategy else self.Rebalance
         # Schedule the algorithm to train and take position 
-        self.Schedule.On(self.DateRules.MonthStart(self.bench_index), self.TimeRules.At(8,0), self.Rebalance)
-        # self.Train(self.DateRules.EveryDay("SPY"), self.TimeRules.At(8,0), self.RebalanceOnML)
+        if RunConfig.UseMLForRebalancing:
+            self.Train(self.DateRules.EveryDay(RunConfig.BenchmarkIndex), self.TimeRules.At(8,0), self.RebalanceOnML)
+        else:
+            self.Schedule.On(self.DateRules.MonthStart(self.bench_index), self.TimeRules.At(8,0), self.Rebalance)
+        
     
     def CoarseSelectionFunction(self, coarse):
         '''
